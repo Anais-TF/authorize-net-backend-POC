@@ -1,11 +1,14 @@
 import { ChargeCreditCardUseCase } from './charge-credit-card.useCase';
+import { GenerateFormUseCase } from './generate-form.useCase';
 
 const useCases  = [
-    ChargeCreditCardUseCase
+    ChargeCreditCardUseCase,
+    GenerateFormUseCase
 ];
 
 export {
-    ChargeCreditCardUseCase
+    ChargeCreditCardUseCase,
+    GenerateFormUseCase
 };
 
 export default useCases;

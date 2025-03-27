@@ -1,4 +1,4 @@
-import { PaymentDto } from '@modules/authorizenet/presentation/dtos';
+import { PaymentDto, PaymentIntentDto } from '@modules/authorizenet/presentation/dtos';
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,6 +22,26 @@ function executeTransaction(ctrl: APIControllers.CreateTransactionController): O
             else
             {
                 observer.next(new APIContracts.CreateTransactionResponse(apiResponse));
+                observer.complete();
+            }
+        });
+    });
+}
+
+function executeGetFormToken(ctrl: APIControllers.GetHostedPaymentPageController): Observable<any>
+{
+    return new Observable(observer =>
+    {
+        ctrl.execute(() =>
+        {
+            const apiResponse = ctrl.getResponse();
+            if (!apiResponse)
+            {
+                observer.error(ctrl.getError());
+            }
+            else
+            {
+                observer.next(new APIContracts.GetHostedPaymentPageResponse(apiResponse));
                 observer.complete();
             }
         });
@@ -133,6 +153,97 @@ export class AuthorizenetService
         const ctrl = new APIControllers.CreateTransactionController(createRequest.getJSON());
 
         const response$ = executeTransaction(ctrl).pipe(
+            catchError(error =>
+            {
+                throw new Error('Error executing transaction');
+            })
+        );
+
+        return firstValueFrom(response$);
+    }
+
+    async generateFormToken({ customerEmail, amount }: PaymentIntentDto)
+    {
+        // This can come from a configuration service
+        const transactionSetting1 = new APIContracts.SettingType();
+        transactionSetting1.setSettingName('hostedPaymentButtonOptions');
+        transactionSetting1.setSettingValue(JSON.stringify({ text: 'Pay' }));
+
+        const transactionSetting2 = new APIContracts.SettingType();
+        transactionSetting2.setSettingName('hostedPaymentPaymentOptions');
+        transactionSetting2.setSettingValue(JSON.stringify({
+            cardCodeRequired: true,
+            showCreditCard: true,
+            showBankAccount: false
+        }));
+
+        const transactionSetting3 = new APIContracts.SettingType();
+        transactionSetting3.setSettingName('hostedPaymentReturnOptions');
+        transactionSetting3.setSettingValue(JSON.stringify({
+            showReceipt: true, url: 'https://127.0.0.1:3000/payment-success', urlText: 'Continue', cancelUrl: 'https://mysite.com/cancel', cancelUrlText: 'Cancel'
+        }));
+
+        const transactionSetting4 = new APIContracts.SettingType();
+        transactionSetting4.setSettingName('hostedPaymentSecurityOptions');
+        transactionSetting4.setSettingValue(JSON.stringify({
+            captcha: false
+        }));
+
+
+        const transactionSetting5 = new APIContracts.SettingType();
+        transactionSetting5.setSettingName('hostedPaymentShippingAddressOptions');
+        transactionSetting5.setSettingValue(JSON.stringify({
+            show: true,
+            required: false
+        }));
+
+        const transactionSetting6 = new APIContracts.SettingType();
+        transactionSetting6.setSettingName('hostedPaymentBillingAddressOptions');
+        transactionSetting6.setSettingValue(JSON.stringify({
+            show: true,
+            required: false
+        }));
+
+        const transactionSetting7 = new APIContracts.SettingType();
+        transactionSetting7.setSettingName('hostedPaymentCustomerOptions');
+        transactionSetting7.setSettingValue(JSON.stringify({
+            showEmail: true,
+            requiredEmail: true,
+            addPaymentProfile: true
+        }));
+
+        const transactionSettings = new APIContracts.ArrayOfSetting();
+        transactionSettings.setSetting([
+            transactionSetting1,
+            transactionSetting2,
+            transactionSetting3,
+            transactionSetting4,
+            transactionSetting5,
+            transactionSetting6,
+            transactionSetting7
+        ]);
+
+        const customer = new APIContracts.CustomerDataType();
+        customer.setEmail(customerEmail);
+
+        const transactionRequestType = new APIContracts.TransactionRequestType();
+        transactionRequestType.setTransactionType(APIContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION);
+
+        transactionRequestType.setCustomer(customer);
+
+        transactionRequestType.setAmount(amount);
+        // transactionRequestType.setBillTo(billTo);
+
+        const createRequest = new APIContracts.GetHostedPaymentPageRequest();
+        createRequest.setMerchantAuthentication(this.merchantAuthenticationType);
+        createRequest.setTransactionRequest(transactionRequestType);
+        createRequest.setHostedPaymentSettings(transactionSettings);
+
+        this.logger.log(createRequest.getJSON());
+
+        const ctrl = new APIControllers.GetHostedPaymentPageController(createRequest.getJSON());
+
+        const response$ = executeGetFormToken(ctrl).pipe(
             catchError(error =>
             {
                 throw new Error('Error executing transaction');
