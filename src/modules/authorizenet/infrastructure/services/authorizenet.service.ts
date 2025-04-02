@@ -162,7 +162,7 @@ export class AuthorizenetService
         return firstValueFrom(response$);
     }
 
-    async generateFormToken({ customerEmail, amount }: PaymentIntentDto)
+    async generateFormToken({ amount }: PaymentIntentDto)
     {
         // This can come from a configuration service
         const transactionSetting1 = new APIContracts.SettingType();
@@ -180,7 +180,7 @@ export class AuthorizenetService
         const transactionSetting3 = new APIContracts.SettingType();
         transactionSetting3.setSettingName('hostedPaymentReturnOptions');
         transactionSetting3.setSettingValue(JSON.stringify({
-            showReceipt: true, url: 'https://127.0.0.1:3000/payment-success', urlText: 'Continue', cancelUrl: 'https://mysite.com/cancel', cancelUrlText: 'Cancel'
+            showReceipt: false, url: 'https://127.0.0.1:3000/payment-success', urlText: 'Continue', cancelUrl: 'https://mysite.com/cancel', cancelUrlText: 'Cancel'
         }));
 
         const transactionSetting4 = new APIContracts.SettingType();
@@ -211,6 +211,11 @@ export class AuthorizenetService
             requiredEmail: true,
             addPaymentProfile: true
         }));
+
+        const transactionSetting8 = new APIContracts.SettingType();
+        transactionSetting8.setSettingName('hostedPaymentIFrameCommunicatorUrl');
+        transactionSetting8.setSettingValue('IFrameCommunicator');
+
 
         const transactionSettings = new APIContracts.ArrayOfSetting();
         transactionSettings.setSetting([
