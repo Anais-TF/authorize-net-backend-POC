@@ -1,5 +1,5 @@
-import { ChargeCreditCardUseCase, GenerateFormUseCase } from '@modules/authorizenet/domain/useCases';
-import { PaymentDto, PaymentIntentDto } from '@modules/authorizenet/presentation/dtos';
+import { AcceptPaymentTransactionUseCase, ChargeCreditCardUseCase, GenerateFormUseCase } from '@modules/authorizenet/domain/useCases';
+import { AcceptPaymentTransactionDto, PaymentDto, PaymentIntentDto } from '@modules/authorizenet/presentation/dtos';
 import { Body, Controller, Logger, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
@@ -14,7 +14,8 @@ export class AuthorizenetController
 
     constructor(
         private readonly chargeCreditCardUseCase: ChargeCreditCardUseCase,
-        private readonly generateFormTokenUseCase: GenerateFormUseCase
+        private readonly generateFormTokenUseCase: GenerateFormUseCase,
+        private readonly acceptPaymentTransactionUseCase: AcceptPaymentTransactionUseCase
     )
     {}
 
@@ -34,5 +35,14 @@ export class AuthorizenetController
     {
         this.logger.log('Getting exchange rate');
         return this.generateFormTokenUseCase.handle({ dto });
+    }
+
+    @Post('accept-transaction')
+    async acceptTransaction(
+       @Body() dto: AcceptPaymentTransactionDto
+    )
+    {
+        this.logger.log('Accepting transaction');
+        return this.acceptPaymentTransactionUseCase.handle({ dto });
     }
 }

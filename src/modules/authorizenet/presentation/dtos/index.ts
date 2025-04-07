@@ -5,3 +5,4 @@ export * from './billing-info.dto';
 export * from './shipping-address.dto';
 export * from './payment.dto';
 export * from './payment-intent.dto';
+export * from './accept-payment-transaction.dto';

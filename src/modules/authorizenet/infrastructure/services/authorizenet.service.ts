@@ -1,4 +1,4 @@
-import { PaymentDto, PaymentIntentDto } from '@modules/authorizenet/presentation/dtos';
+import { AcceptPaymentTransactionDto, PaymentDto, PaymentIntentDto } from '@modules/authorizenet/presentation/dtos';
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,7 +17,7 @@ function executeTransaction(ctrl: APIControllers.CreateTransactionController): O
             const apiResponse = ctrl.getResponse();
             if (!apiResponse)
             {
-                observer.error(ctrl.getError());
+                observer.error((ctrl as any).getError());
             }
             else
             {
@@ -37,7 +37,7 @@ function executeGetFormToken(ctrl: APIControllers.GetHostedPaymentPageController
             const apiResponse = ctrl.getResponse();
             if (!apiResponse)
             {
-                observer.error(ctrl.getError());
+                observer.error((ctrl as any).getError());
             }
             else
             {
@@ -228,13 +228,13 @@ export class AuthorizenetService
             transactionSetting7
         ]);
 
-        const customer = new APIContracts.CustomerDataType();
-        customer.setEmail(customerEmail);
+        /*        const customer = new APIContracts.CustomerDataType();
+        customer.setEmail(customerEmail);*/
 
         const transactionRequestType = new APIContracts.TransactionRequestType();
         transactionRequestType.setTransactionType(APIContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION);
 
-        transactionRequestType.setCustomer(customer);
+        // transactionRequestType.setCustomer(customer);
 
         transactionRequestType.setAmount(amount);
         // transactionRequestType.setBillTo(billTo);
@@ -249,6 +249,104 @@ export class AuthorizenetService
         const ctrl = new APIControllers.GetHostedPaymentPageController(createRequest.getJSON());
 
         const response$ = executeGetFormToken(ctrl).pipe(
+            catchError(error =>
+            {
+                throw new Error('Error executing transaction');
+            })
+        );
+
+        return firstValueFrom(response$);
+    }
+
+    async createAnAcceptTransaction({ nonce, order, billingInfo }: AcceptPaymentTransactionDto)
+    {
+        const opaqueData = new APIContracts.OpaqueDataType();
+        opaqueData.setDataDescriptor('COMMON.ACCEPT.INAPP.PAYMENT');
+        opaqueData.setDataValue(nonce);
+
+        const paymentType = new APIContracts.PaymentType();
+        paymentType.setOpaqueData(opaqueData);
+
+
+        const orderDetails = new APIContracts.OrderType();
+        orderDetails.setInvoiceNumber(order.number);
+        orderDetails.setDescription(order?.description ?? 'default_description');
+
+        const orderItems = order.items.map((item) =>
+        {
+            const lineItem = new APIContracts.LineItemType();
+            lineItem.setItemId(item.id);
+            lineItem.setName(item.name);
+            lineItem.setDescription(item.description);
+            lineItem.setQuantity(item.quantity);
+            lineItem.setUnitPrice(item.price);
+
+            return lineItem;
+        });
+
+        const lineItems = new APIContracts.ArrayOfLineItem();
+        lineItems.setLineItem(orderItems);
+
+        const tax = new APIContracts.ExtendedAmountType();
+        tax.setAmount(order.tax);
+        tax.setName('default_name');
+        tax.setDescription('default_description');
+
+        const billTo = new APIContracts.CustomerAddressType();
+        billTo.setFirstName(billingInfo.firstName);
+        billTo.setLastName(billingInfo.lastName);
+        billTo.setCompany(billingInfo.company);
+        billTo.setAddress(billingInfo.address);
+        billTo.setCity(billingInfo.city);
+        billTo.setState(billingInfo.state);
+        billTo.setZip(billingInfo.zip);
+        billTo.setCountry(billingInfo.country);
+
+        const shipTo = new APIContracts.CustomerAddressType();
+        shipTo.setFirstName(billingInfo.firstName);
+        shipTo.setLastName(billingInfo.lastName);
+        shipTo.setCompany(billingInfo.company);
+        shipTo.setAddress(billingInfo.address);
+        shipTo.setCity(billingInfo.city);
+        shipTo.setState(billingInfo.state);
+        shipTo.setZip(billingInfo.zip);
+        shipTo.setCountry(billingInfo.country);
+
+
+        const transactionSetting1 = new APIContracts.SettingType();
+        transactionSetting1.setSettingName('duplicateWindow');
+        transactionSetting1.setSettingValue('120');
+
+        const transactionSetting2 = new APIContracts.SettingType();
+        transactionSetting2.setSettingName('recurringBilling');
+        transactionSetting2.setSettingValue('false');
+
+        const transactionSettings = new APIContracts.ArrayOfSetting();
+        transactionSettings.setSetting([transactionSetting1, transactionSetting2]);
+
+        const transactionRequestType = new APIContracts.TransactionRequestType();
+        transactionRequestType.setTransactionType(APIContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION);
+        transactionRequestType.setPayment(paymentType);
+        transactionRequestType.setAmount(order.total);
+        transactionRequestType.setLineItems(lineItems);
+        // transactionRequestType.setUserFields(userFields);
+        transactionRequestType.setOrder(orderDetails);
+        transactionRequestType.setTax(tax);
+        // transactionRequestType.setDuty(duty);
+        // transactionRequestType.setShipping(shipping);
+        transactionRequestType.setBillTo(billTo);
+        transactionRequestType.setShipTo(shipTo);
+        transactionRequestType.setTransactionSettings(transactionSettings);
+
+        const createRequest = new APIContracts.CreateTransactionRequest();
+        createRequest.setMerchantAuthentication(this.merchantAuthenticationType);
+        createRequest.setTransactionRequest(transactionRequestType);
+
+        this.logger.log(createRequest.getJSON());
+
+        const ctrl = new APIControllers.CreateTransactionController(createRequest.getJSON());
+
+        const response$ = executeTransaction(ctrl).pipe(
             catchError(error =>
             {
                 throw new Error('Error executing transaction');
